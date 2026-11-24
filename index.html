@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Where's Abigya?</title>
+<meta name="theme-color" content="#0A1324">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: one column "ops board" — live status, lookups, route map, trip board, country guides. */
+:root{
+  --bg:#EDF1F6; --surface:#FFFFFF; --sunk:#F5F7FA; --ink:#13213B; --muted:#5A6A84; --line:#D6DDE8;
+  --accent:#B4530A; --accent-soft:#F6DDB8; --sky:#2459C9; --land:#D9E0EA; --ocean:#E6ECF4; --visited:#EFC27A;
+  --air:#2459C9; --air-bg:#DCE6FB; --ok:#17733A; --ok-bg:#D8F0E0; --soon:#9A5B00; --soon-bg:#FBEACC; --danger:#B42318; --danger-bg:#FBE0DC;
+  --f-display:"Bricolage Grotesque","Avenir Next","Segoe UI",system-ui,sans-serif;
+  --f-body:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --r:14px; color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#0A1324; --surface:#111D34; --sunk:#0D182C; --ink:#E7EDF7; --muted:#93A3BE; --line:#233250;
+  --accent:#F2B54A; --accent-soft:#4A3414; --sky:#7FA8FF; --land:#1B2944; --ocean:#0D182C; --visited:#B98431;
+  --air:#8DB2FF; --air-bg:#1C2E55; --ok:#5BD58A; --ok-bg:#123524; --soon:#F2B54A; --soon-bg:#3B2A10; --danger:#FF7B6E; --danger-bg:#3D1712; color-scheme:dark}}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 var(--f-body);padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.wrap{max-width:1080px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 56px;display:flex;flex-direction:column;gap:22px}
+h1,h2,h3{font-family:var(--f-display);margin:0;text-wrap:balance;letter-spacing:-.01em}
+h2{font-size:1.25rem}
+.eyebrow{font:600 .72rem/1.2 var(--f-body);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--sky);outline-offset:2px}
+a{color:var(--sky)}
+.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+.top h1{font-size:clamp(1.6rem,4vw,2.3rem);line-height:1.05}
+.top h1 span{color:var(--accent)}
+.clocks{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-end}
+.clock{display:flex;flex-direction:column;gap:4px}
+.clock b{font:700 1.05rem var(--f-mono)}
+.panel,.hero{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px}
+.hero{padding:22px;display:grid;grid-template-columns:1.2fr 1fr;gap:22px}
+.hero>*{min-width:0}
+.phead{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+.route{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.code{font:700 clamp(2.4rem,7vw,3.6rem)/1 var(--f-mono);letter-spacing:.02em}
+.route .arrow{flex:1;min-width:40px;height:2px;background:repeating-linear-gradient(90deg,var(--muted) 0 6px,transparent 6px 11px)}
+.cities{display:flex;justify-content:space-between;gap:12px;color:var(--muted);margin-top:6px}
+.cities span:last-child{text-align:right}
+.pill{display:inline-flex;align-items:center;gap:6px;font:600 .75rem/1 var(--f-body);letter-spacing:.06em;text-transform:uppercase;padding:6px 10px;border-radius:999px;white-space:nowrap}
+.pill::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.s-air{color:var(--air);background:var(--air-bg)} .s-air::before{animation:pulse 1.6s infinite}
+.s-landed{color:var(--ok);background:var(--ok-bg)}
+.s-upcoming,.s-soon,.s-delayed{color:var(--soon);background:var(--soon-bg)}
+.s-cancelled,.s-diverted{color:var(--danger);background:var(--danger-bg)}
+@keyframes pulse{50%{opacity:.25}}
+@media (prefers-reduced-motion:reduce){.s-air::before{animation:none}}
+.count{font:700 clamp(1.6rem,4.5vw,2.2rem)/1.1 var(--f-display);margin-top:14px}
+.count small{display:block;font:500 .85rem var(--f-body);color:var(--muted);margin-top:4px}
+.progress{margin-top:16px;height:6px;border-radius:6px;background:var(--sunk);border:1px solid var(--line);position:relative}
+.progress i{position:absolute;inset:0 auto 0 0;border-radius:6px;background:var(--air)}
+.times{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.tbox{background:var(--sunk);border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.tbox .big{font:700 1.5rem/1.1 var(--f-mono)}
+.tbox .big s{font-size:.95rem;color:var(--muted);margin-left:6px;font-weight:500}
+.tbox .sub{color:var(--muted);font-size:.82rem}
+.links{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface);border-radius:9px;padding:8px 12px;text-decoration:none;color:var(--ink);font-weight:500;font-size:.88rem}
+.btn:hover{border-color:var(--muted)}
+.btn:disabled{opacity:.55;cursor:wait}
+.btn.primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.btn.ghost{background:transparent}
+.note{color:var(--muted);font-size:.82rem}
+.err{color:var(--danger);font-size:.88rem}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.seg button{border:0;background:transparent;padding:6px 12px;font-size:.85rem;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+input.f{background:var(--sunk);border:1px solid var(--line);border-radius:8px;padding:10px 11px;font-size:1rem;width:100%;min-width:0}
+label.l{display:flex;flex-direction:column;gap:5px;font-size:.78rem;color:var(--muted);font-weight:500;min-width:0}
+/* lookups */
+.tools{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+.tools>*{min-width:0}
+.line{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end}
+.line>label{flex:1;min-width:110px}
+.result{margin-top:14px;display:flex;flex-direction:column;gap:8px}
+.res{border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:var(--sunk);display:flex;flex-direction:column;gap:8px}
+.res .top2{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.res .rt{font:700 1.15rem var(--f-mono)}
+.res .rt small{font:400 .8rem var(--f-body);color:var(--muted);display:block}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;font-size:.86rem}
+.kv dt{color:var(--muted)} .kv dd{margin:0;font-family:var(--f-mono)}
+/* map */
+.mapbox{width:100%;aspect-ratio:1.9;max-width:100%;border-radius:10px;overflow:hidden;background:var(--ocean)}
+.mapbox svg{width:100%;height:100%;display:block}
+.stats{display:flex;flex-wrap:wrap;gap:8px 26px;margin-top:14px}
+.stat{display:flex;flex-direction:column}
+.stat b{font:700 1.3rem var(--f-mono)} .stat span{font-size:.78rem;color:var(--muted)}
+/* board */
+.board{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.row{display:grid;grid-template-columns:92px 86px minmax(0,1.4fr) minmax(0,1.3fr) 128px 120px;gap:12px;align-items:center;padding:12px 14px;border-top:1px solid var(--line);background:var(--surface);cursor:pointer}
+.row:first-child{border-top:0}
+.row.headr{background:var(--sunk);padding-block:8px;cursor:default}
+.row.headr span{font:600 .68rem var(--f-body);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.row.sel{background:var(--sunk);box-shadow:inset 3px 0 0 var(--accent)}
+.row .fl{font:700 .95rem var(--f-mono)}
+.row .rt{font:700 1rem var(--f-mono)}
+.row .rt small,.row .tm small{display:block;font:400 .78rem var(--f-body);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .tm{font:500 .9rem var(--f-mono)}
+.row .act{display:flex;gap:4px;justify-content:flex-end}
+.icon{border:1px solid transparent;background:transparent;border-radius:7px;padding:4px 7px;color:var(--muted);font-size:.8rem}
+.icon:hover{border-color:var(--line);color:var(--ink)}
+.icon.danger{color:var(--danger)}
+.empty{padding:28px;text-align:center;color:var(--muted)}
+/* guide */
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 12px 6px 8px;font-size:.9rem}
+.chip[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.chip .n{font:600 .72rem var(--f-mono);color:var(--muted)}
+.flag{font-size:1.15rem;line-height:1}
+.guide{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:16px}
+.guide>*{min-width:0}
+.gtitle{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:baseline;gap:10px 16px}
+.gtitle h3{font-size:1.7rem}
+.facts{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px 18px;color:var(--muted);font-size:.85rem}
+.facts b{color:var(--ink);font-weight:600}
+.known{grid-column:1/-1;font-size:1.05rem;max-width:68ch;margin:0}
+.list h4{margin:0 0 8px;font:600 .72rem var(--f-body);letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
+.list ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px}
+.tip{grid-column:1/-1;border-left:3px solid var(--sky);padding:4px 0 4px 12px;max-width:72ch}
+/* setup */
+.setup{border:2px solid var(--accent);}
+.setup ol{margin:8px 0 14px;padding-left:20px;display:flex;flex-direction:column;gap:4px}
+.toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:.9rem;z-index:20;max-width:calc(100% - 32px)}
+@media (max-width:820px){
+  .hero,.tools,.guide{grid-template-columns:1fr}
+  .row{grid-template-columns:1fr auto;grid-template-areas:"rt st" "fl tm" "act act";gap:6px 12px}
+  .row.headr{display:none} .row .c-date{display:none}
+  .row .fl{grid-area:fl} .row .rt{grid-area:rt} .row .tm{grid-area:tm;text-align:right} .row .st{grid-area:st;justify-self:end} .row .act{grid-area:act}
+  .mapbox{aspect-ratio:1.45}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <div class="eyebrow">Ethiopian Airlines · ET</div>
+      <h1>Where's <span>Abigya</span>?</h1>
+    </div>
+    <div class="clocks">
+      <div class="clock"><span class="eyebrow">Your time</span><b id="clkMe">--:--</b></div>
+      <div class="clock"><span class="eyebrow">Addis Ababa</span><b id="clkAdd">--:--</b></div>
+      <div class="clock" id="clkHerBox" hidden><span class="eyebrow" id="clkHerLbl">Abigya</span><b id="clkHer">--:--</b></div>
+      <button class="icon" id="openSettings" aria-label="Settings">Settings</button>
+    </div>
+  </header>
+
+  <section class="panel setup" id="setup" hidden>
+    <div class="eyebrow">One-time setup</div>
+    <h2>Connect the free flight data</h2>
+    <ol>
+      <li>Open <a href="https://airlabs.co/signup" target="_blank" rel="noopener">airlabs.co/signup</a> and create a free account (1,000 lookups a month).</li>
+      <li>Copy your <b>API Key</b> from the AirLabs dashboard.</li>
+      <li>Paste it here. It's saved only on this phone or computer.</li>
+    </ol>
+    <form class="line" id="keyForm">
+      <label class="l">AirLabs API key<input class="f mono" id="keyIn" autocomplete="off" spellcheck="false" placeholder="paste your key"></label>
+      <button class="btn primary" type="submit">Save key</button>
+      <button class="btn ghost" type="button" id="useDemo">Try demo data</button>
+    </form>
+    <p class="err" id="keyErr"></p>
+    <p class="note" id="keyNow" hidden></p>
+  </section>
+
+  <section class="hero" id="hero" aria-live="polite">
+    <div id="heroMain"></div>
+    <div id="heroSide"></div>
+  </section>
+
+  <section class="panel">
+    <div class="tools">
+      <div>
+        <div class="eyebrow">Track a flight</div>
+        <h2>Type her flight number</h2>
+        <form class="line" id="lookForm" style="margin-top:12px">
+          <label class="l">Flight number<input class="f mono" id="lookIn" placeholder="ET 673" autocomplete="off" autocapitalize="characters" maxlength="8"></label>
+          <button class="btn primary" type="submit" id="lookGo">Look up</button>
+        </form>
+        <div class="result" id="lookOut"></div>
+      </div>
+      <div>
+        <div class="eyebrow">Plan ahead</div>
+        <h2>Where is she going?</h2>
+        <form class="line" id="findForm" style="margin-top:12px">
+          <label class="l">From<input class="f mono" id="findFrom" list="apList" value="ADD" autocomplete="off"></label>
+          <label class="l">To<input class="f mono" id="findTo" list="apList" placeholder="FRA" autocomplete="off"></label>
+          <label class="l">Date<input class="f" id="findDate" type="date"></label>
+          <button class="btn primary" type="submit" id="findGo">Find ET flights</button>
+        </form>
+        <div class="result" id="findOut"></div>
+      </div>
+    </div>
+    <datalist id="apList"></datalist>
+  </section>
+
+  <section class="panel">
+    <div class="phead">
+      <div><div class="eyebrow">Route map</div><h2>Everywhere she's flown</h2></div>
+      <div class="seg" role="group" aria-label="Map view">
+        <button id="mvRoutes" aria-pressed="true">Her routes</button>
+        <button id="mvWorld" aria-pressed="false">World</button>
+      </div>
+    </div>
+    <div class="mapbox" id="map"><svg viewBox="0 0 960 505" role="img" aria-label="World map of Abigya's flights"></svg></div>
+    <div class="stats" id="stats"></div>
+  </section>
+
+  <section class="panel">
+    <div class="phead">
+      <div><div class="eyebrow">Departure board</div><h2>Her trips</h2></div>
+      <div class="seg" role="group" aria-label="Which trips">
+        <button id="tbUp" aria-pressed="true">Coming up</button>
+        <button id="tbPast" aria-pressed="false">Past</button>
+        <button id="tbAll" aria-pressed="false">All</button>
+      </div>
+    </div>
+    <div class="board" id="board"></div>
+  </section>
+
+  <section class="panel">
+    <div class="phead">
+      <div><div class="eyebrow">Country guide</div><h2>Where she's been, and what to look for</h2></div>
+      <div class="seg" role="group" aria-label="Which countries">
+        <button id="cgHers" aria-pressed="true">Her countries</button>
+        <button id="cgAll" aria-pressed="false">Whole network</button>
+      </div>
+    </div>
+    <div class="chips" id="chips"></div>
+    <div class="guide" id="guide"></div>
+  </section>
+
+  <p class="note">Flight data from AirLabs. Trips are saved in this browser only. Her live position also opens on FlightAware and Flightradar24.</p>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
