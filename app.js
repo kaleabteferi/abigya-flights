@@ -167,12 +167,21 @@ $("lookForm").addEventListener("submit",async e=>{
     const f=await api("flight",{flight_iata:fl});
     if(!f||!f.dep_iata){out.innerHTML='<p class="err">AirLabs has no current flight for '+esc(showFlight(fl))+'. It only knows flights from about a day before departure. For later dates, use "Where is she going?".</p>';return;}
     await Promise.all([ensureAirport(f.dep_iata),ensureAirport(f.arr_iata)]);
-    const t=upsertTrip(tripFromFlight(f));selId=t.id;
-    out.innerHTML=resCard(t,'<div class="note">Saved to her trips. It refreshes by itself while she’s travelling.</div>');
-    rerender();
+    looked=tripFromFlight(f);
+    const have=trips.find(t=>t.flight===looked.flight&&t.from===looked.from&&t.date===looked.date);
+    if(have){Object.assign(have,looked);saveTrips();rerender();}
+    out.innerHTML=resCard(looked,have
+      ?'<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><button class="btn" disabled>In her trips ✓</button><span class="note">Updated with the latest times.</span></div>'
+      :'<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><button class="btn primary" id="lookAdd">+ Add to her trips</button><span class="note">Once added, it refreshes by itself while she’s travelling.</span></div>');
   }catch(err){out.innerHTML='<p class="err">'+esc(err.message)+'</p>';}
   finally{$("lookGo").disabled=false;}
 });
+
+let looked=null;
+$("lookOut").addEventListener("click",e=>{const b=e.target.closest("#lookAdd");if(!b||!looked)return;
+  const t=upsertTrip(Object.assign({},looked));selId=t.id;b.textContent="In her trips ✓";b.disabled=true;b.classList.remove("primary");
+  if(b.nextElementSibling)b.nextElementSibling.textContent="Added. It refreshes by itself while she’s travelling.";
+  toast("Added "+showFlight(t.flight)+" to her trips");setTab(status(t)==="landed"?"past":"up");rerender();});
 
 /* ================= find by destination ================= */
 let found=[];
